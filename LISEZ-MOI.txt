@@ -1,0 +1,50 @@
+CARNET PRODUCTION - application installable (iPhone et Android)
+
+Ce dossier contient l'application complete. Il faut la mettre en ligne UNE fois sur un site gratuit
+(adresse en https). Ensuite chaque machiniste ouvre le lien, installe l'application, et elle apparait
+sur l'ecran d'accueil avec son icone. Elle marche aussi sans internet.
+
+NE PAS renommer ni supprimer les fichiers : index.html, manifest.webmanifest, sw.js et les 4 icones (.png).
+
+-----------------------------------------------------------------
+OPTION A - Netlify Drop (la plus simple, depuis un ordinateur)
+-----------------------------------------------------------------
+1. Decompresse le zip : tu obtiens un dossier "carnet-production".
+2. Ouvre https://app.netlify.com/drop dans le navigateur.
+3. Glisse le DOSSIER dans la zone indiquee.
+4. Netlify donne une adresse du type https://nom-aleatoire.netlify.app
+5. Cree un compte gratuit quand Netlify le propose, pour que le site ne soit pas supprime
+   apres quelques heures (verifie le message affiche a l'ecran).
+
+-----------------------------------------------------------------
+OPTION B - GitHub Pages
+-----------------------------------------------------------------
+1. Cree un compte gratuit sur github.com, puis un nouveau depot PUBLIC (par exemple "carnet-production").
+2. "Add file" > "Upload files" : glisse TOUS les fichiers du dossier (pas le zip), puis "Commit changes".
+3. Settings > Pages > Source : "Deploy from a branch", branche "main", dossier "/ (root)", puis Save.
+4. Apres une a deux minutes, l'adresse est https://TON-NOM.github.io/carnet-production/
+
+Attention : un depot public est visible par tout le monde. Il ne contient que l'application vide,
+jamais les bons des agents (ils restent sur chaque telephone).
+
+-----------------------------------------------------------------
+INSTALLER SUR LE TELEPHONE (chaque machiniste, une seule fois)
+-----------------------------------------------------------------
+iPhone : ouvrir le lien dans SAFARI > bouton Partager > "Sur l'ecran d'accueil" > Ajouter.
+Android : ouvrir le lien dans CHROME > bouton "Installer" dans l'application,
+          ou menu (trois points) > "Installer l'application" / "Ajouter a l'ecran d'accueil".
+
+Important : installer AVANT de noter des bons, puis toujours ouvrir l'application depuis son icone.
+Sur iPhone, les bons notes dans Safari avant l'installation ne sont pas transferes dans l'application.
+
+-----------------------------------------------------------------
+UTILISATION
+-----------------------------------------------------------------
+1. Premiere ouverture : ecrire son prenom.
+2. Noter chaque vente ou charge (mode de paiement, montant, detail).
+3. Bouton "Envoyer ... au responsable" > partager par WhatsApp (ou copier le message).
+4. Confirmer "Oui, c'est envoye". Le responsable colle le message dans l'application principale
+   (Bons > Importer les bons d'un agent).
+
+Mise a jour : si le fichier index.html change, remettre en ligne le dossier. Les telephones
+prennent la nouvelle version a l'ouverture suivante quand il y a internet.
