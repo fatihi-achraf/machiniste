@@ -214,12 +214,15 @@ body{padding-block:14px 100px}
     <p class="notice" id="noProd" hidden>Aucun produit de production n’est défini. Demande au responsable de cocher « produit de production » dans la fiche du produit.</p>
     <form id="ordForm" autocomplete="off" style="display:flex;flex-direction:column;gap:14px">
       <div class="group"><legend>Produit</legend><div class="seg2" id="prodBtns"></div></div>
-      <label class="field"><span>Client</span><input id="cli" maxlength="60" autocomplete="off" placeholder="Nom du client"></label>
-      <div class="cres" id="cliRes"></div>
+      <label class="field"><span>Client</span><select id="cliSel" aria-label="Client"></select></label>
+      <label class="field" id="cliNewBox" hidden><span>Nom du nouveau client</span><input id="cli" maxlength="60" autocomplete="off" placeholder="Écris le nom du client"></label>
       <div class="qrow">
         <label class="field"><span id="qCap">Quantité</span><div class="money"><input id="qty" inputmode="decimal" autocomplete="off" placeholder="0"><i id="qUnit"></i></div></label>
         <label class="field"><span id="pCap">Prix unitaire</span><div class="money"><input id="price" inputmode="decimal" autocomplete="off" placeholder="0,00"><i id="pUnit">DH</i></div></label>
       </div>
+      <label class="field"><span>Montant total</span><div class="money"><input id="tot" inputmode="decimal" autocomplete="off" placeholder="0"><i>DH</i></div></label>
+      <p class="hint" style="margin-block-start:-6px">Écris deux des trois (quantité, prix, total) : le troisième se remplit tout seul. Le total est arrondi au dirham supérieur.</p>
+      <label class="field"><span>Note (facultatif)</span><input id="note" maxlength="120" autocomplete="off" placeholder="Ex : logo « Auto Samir »"></label>
       <p class="hint" id="lastHint" hidden></p>
       <div class="ordtot" id="ordTot" hidden><span id="totLine"></span><b id="totBig"></b></div>
       <p class="err" id="formErr" role="alert" hidden></p>
@@ -259,11 +262,14 @@ body{padding-block:14px 100px}
 <div class="dlg" id="editDlg" hidden role="dialog" aria-modal="true" aria-labelledby="edT"><div>
   <h2 id="edT">Modifier la commande</h2>
   <div class="group"><legend>Produit</legend><div class="seg2" id="edProdBtns"></div></div>
-  <label class="field"><span>Client</span><input id="edCli" maxlength="60" autocomplete="off"></label>
+  <label class="field"><span>Client</span><select id="edCliSel" aria-label="Client"></select></label>
+  <label class="field" id="edCliNewBox" hidden><span>Nom du nouveau client</span><input id="edCli" maxlength="60" autocomplete="off" placeholder="Écris le nom du client"></label>
   <div class="qrow">
     <label class="field"><span id="edQCap">Quantité</span><div class="money"><input id="edQty" inputmode="decimal" autocomplete="off"><i id="edQUnit"></i></div></label>
     <label class="field"><span>Prix unitaire</span><div class="money"><input id="edPrice" inputmode="decimal" autocomplete="off"><i>DH</i></div></label>
   </div>
+  <label class="field"><span>Montant total</span><div class="money"><input id="edTotIn" inputmode="decimal" autocomplete="off"><i>DH</i></div></label>
+  <label class="field"><span>Note (facultatif)</span><input id="edNote" maxlength="120" autocomplete="off"></label>
   <div class="ordtot" id="edTot"><span id="edTotLine"></span><b id="edTotBig"></b></div>
   <p class="err" id="edErr" role="alert" hidden></p>
   <div class="acts"><button class="primary" id="edSave" type="button">Enregistrer</button><button class="ghost" id="edCancel" type="button">Fermer</button></div>
@@ -323,7 +329,52 @@ function lastFor(name,prod){
   var k=known?known[0]:clientId(name);
   return l[k+'|'+prod]||l[nk+'|'+prod]||null;
 }
-function orderTotal(q,pc){return Math.round(q*pc)}
+function ceilDH(c){return Math.ceil(Math.round(c*1000)/1000/100-1e-9)*100}
+function orderTotal(q,pc){return ceilDH(q*pc)}
+function prodPrice(name){var p=prods().find(function(x){return x.name===name});return (p&&p.price)||0}
+function cents2in(c){return (c/100).toFixed(2).replace(/\.00$/,'').replace('.',',')}
+/* client : liste déroulante + saisie d'un nouveau nom */
+function fillCliSel(selId,inId,boxId,cur){
+  var sl=$(selId),names=clientsList().map(function(c){return c[1]}),sig=names.join('|');
+  if(sl.dataset.sig!==sig){
+    var keep=sl.value;
+    sl.innerHTML='<option value="">— Choisir un client —</option>'+names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('')+'<option value="__new">＋ Nouveau client…</option>';
+    sl.dataset.sig=sig;
+    if(keep&&(keep==='__new'||names.indexOf(keep)>=0))sl.value=keep;
+  }
+}
+function cliChange(selId,inId,boxId){
+  var sl=$(selId),inp=$(inId),box=$(boxId);
+  if(sl.value==='__new'){box.hidden=false;inp.value='';inp.focus()}
+  else{box.hidden=true;inp.value=sl.value}
+}
+function cliSet(selId,inId,boxId,name){
+  var sl=$(selId),inp=$(inId),box=$(boxId);
+  if(!name){sl.value='';inp.value='';box.hidden=true;return}
+  var hit=clientsList().find(function(c){return nameKey(c[1])===nameKey(name)});
+  if(hit){sl.value=hit[1];inp.value=hit[1];box.hidden=true}
+  else{sl.value='__new';inp.value=name;box.hidden=false}
+}
+/* quantité, prix, total : on écrit deux, le troisième se remplit */
+function makeLinker(ids,onChange,priceLocked){
+  var rec=[];
+  function val(k){var v=$(ids[k]).value;return k==='qty'?parseQty(v):parseMoney(v)}
+  function put(k,v){$(ids[k]).value=k==='qty'?String(v).replace('.',','):cents2in(v);if(k==='price')$(ids[k]).dataset.touched='1'}
+  function recalc(){
+    if(rec.length<2)return;
+    var last=rec.slice(-2),t=['qty','price','tot'].filter(function(k){return last.indexOf(k)<0})[0];
+    if(!t)return;
+    if(t==='price'&&priceLocked&&priceLocked())t=last[0];
+    var q=val('qty'),pc=val('price'),tt=val('tot');
+    if(t==='tot'){if(q>0&&pc>0)put('tot',orderTotal(q,pc));else $(ids.tot).value=''}
+    else if(t==='qty'){if(tt>0&&pc>0)put('qty',Math.round(tt/pc*1000)/1000);else $(ids.qty).value=''}
+    else{if(tt>0&&q>0)put('price',Math.round(tt/q));else $(ids.price).value=''}
+  }
+  function typed(k){rec=rec.filter(function(x){return x!==k});if($(ids[k]).value.trim()!=='')rec.push(k);recalc();if(onChange)onChange()}
+  return {typed:typed,recalc:recalc,reset:function(init){rec=init||[]},mark:function(k){rec=rec.filter(function(x){return x!==k});rec.push(k)},drop:function(k){rec=rec.filter(function(x){return x!==k})},
+    total:function(){var q=val('qty'),pc=val('price'),tt=val('tot');if(!(q>0&&pc>0))return null;if(tt>0&&Math.abs(tt-q*pc)<=100.001)return tt;return orderTotal(q,pc)}};
+}
+var lk=null,edLk=null;
 
 /* ---------- rendu ---------- */
 function render(){
@@ -339,18 +390,28 @@ function render(){
   var ps=prods();$('noProd').hidden=ps.length>0;$('ordForm').hidden=!ps.length;
   if(!sel||!ps.some(function(p){return p.name===sel}))sel=ps.length?ps[0].name:'';
   $('prodBtns').innerHTML=ps.map(function(p){return '<button type="button" class="pchip" data-p="'+esc(p.name)+'" aria-pressed="'+(p.name===sel?'true':'false')+'">'+esc(p.name)+'</button>'}).join('');
+  fillCliSel('cliSel','cli','cliNewBox');fillCliSel('edCliSel','edCli','edCliNewBox');
+  if(!$('price').value&&!$('price').dataset.touched)prefillPrice();
   refreshForm();renderList();renderStock();
+}
+function prefillPrice(){
+  var pr=$('price');if(pr.dataset.touched==='1')return;
+  var l=lastFor(cleanName($('cli').value),sel),c=l?l.pr:prodPrice(sel);
+  if(c){pr.value=cents2in(c);if(lk){lk.drop('tot');lk.mark('price');lk.recalc()}}
+  else{pr.value='';if(lk)lk.drop('price')}
 }
 function refreshForm(){
   var u=unitOf(sel);
   $('qUnit').textContent=u||'';$('qCap').textContent='Quantité'+(u?' ('+u+')':'');$('pUnit').textContent='DH'+(u?'/'+u:'');$('pCap').textContent='Prix'+(u?' par '+u:' unitaire');
   var q=parseQty($('qty').value),pc=parseMoney($('price').value),b=$('ordTot');
-  if(q&&pc){b.hidden=false;$('totLine').textContent=fq(q)+(u?' '+u:'')+' × '+fmt(pc)+' DH';$('totBig').textContent=fmt(orderTotal(q,pc))+' DH'}else b.hidden=true;
+  var T=lk?lk.total():null;
+  if(q&&pc&&T){b.hidden=false;$('totLine').textContent=fq(q)+(u?' '+u:'')+' × '+fmt(pc)+' DH';$('totBig').textContent=fmt(T)+' DH'}else b.hidden=true;
   var name=cleanName($('cli').value),lh=$('lastHint');
   var l=name&&sel?lastFor(name,sel):null;
   if(l){lh.hidden=false;lh.textContent='Dernier prix pour ce client : '+fmt(l.pr)+' DH'+(u?'/'+u:'')+' ('+fq(l.q)+(u?' '+u:'')+')'}else lh.hidden=true;
 }
 function renderCliRes(){
+  return;
   var q=nameKey($('cli').value),box=$('cliRes');
   if(!q){box.innerHTML='';return}
   var m=clientsList().filter(function(c){return nameKey(c[1]).indexOf(q)>=0}).slice(0,6);
@@ -360,7 +421,7 @@ function renderCliRes(){
 function statusOf(o){return o.st==='pending'?'pending':(o.st==='cancelled'?'cancelled':o.st)}
 function orderRows(){
   var rows=[],seen={};
-  data.pending.forEach(function(o){seen[o.id]=1;rows.push({id:o.id,p:o.product,n:o.clientName,q:o.qty,u:unitOf(o.product),pr:o.price,t:orderTotal(o.qty,o.price),s:o.ts,d:o.date,st:'pending',by:data.name})});
+  data.pending.forEach(function(o){seen[o.id]=1;rows.push({id:o.id,p:o.product,n:o.clientName,q:o.qty,u:unitOf(o.product),pr:o.price,t:(o.total!=null?o.total:orderTotal(o.qty,o.price)),nt:o.note||'',s:o.ts,d:o.date,st:'pending',by:data.name})});
   ((data.view&&data.view.orders)||[]).forEach(function(o){if(!seen[o.id])rows.push(o)});
   rows.sort(function(a,b){return b.s-a.s});
   return rows;
@@ -369,7 +430,7 @@ function rowHtml(o){
   var st=o.st,tag=st==='open'?'<span class="tag open">À encaisser</span>':(st==='paid'?'<span class="tag paid">Payée</span>':(st==='cancelled'?'<span class="tag off">Annulée</span>':'<span class="tag open">En attente d’envoi</span>'));
   var t=new Date(o.s),editable=(st==='open'||st==='pending');
   var btns=editable?'<div class="rowbtn"><button type="button" class="mini" data-oedit="'+esc(o.id)+'">Modifier</button><button type="button" class="mini'+(armed===o.id?' arm':'')+'" data-ocancel="'+esc(o.id)+'">'+(armed===o.id?'Confirmer l’annulation ?':'Annuler')+'</button></div>':'';
-  return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
+  return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+(o.nt?'<div class="meta"><span>📝 '+esc(o.nt)+'</span></div>':'')+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
 }
 function renderList(){
   var rows=orderRows(),box=$('listBox');
@@ -450,7 +511,7 @@ function flush(){
   return list.reduce(function(p,o){
     return p.then(function(stop){
       if(stop)return true;
-      return apiWith(data.conn,'addOrder',{id:o.id,product:o.product,qty:o.qty,price:o.price,client:o.client,clientName:o.clientName,by:data.name}).then(function(){
+      return apiWith(data.conn,'addOrder',{id:o.id,product:o.product,qty:o.qty,price:o.price,total:o.total,note:o.note||'',client:o.client,clientName:o.clientName,by:data.name}).then(function(){
         data.pending=data.pending.filter(function(x){return x.id!==o.id});save();return false;
       },function(e){
         if(e.code==='network'||e.code==='busy'||e.code==='server')return true;
@@ -477,15 +538,16 @@ function submitOrder(e){
   er.hidden=true;
   var name=cleanName($('cli').value),q=parseQty($('qty').value),pc=parseMoney($('price').value);
   if(!sel){err('Choisis le produit.');return}
-  if(name.length<2){err('Écris le nom du client.',$('cli'));return}
+  if($('cliSel').value==='__new'&&name.length<2){err('Écris le nom du nouveau client.',$('cli'));return}
+  if(name.length<2){err('Choisis le client dans la liste.',$('cliSel'));return}
   if(!q||q<=0){err('Écris la quantité.',$('qty'));return}
   if(q>100000){err('Quantité trop grande. Vérifie les chiffres.',$('qty'));return}
   if(!pc||pc<=0){err('Écris le prix unitaire.',$('price'));return}
-  var tot=orderTotal(q,pc);if(tot>1000000000){err('Montant trop grand. Vérifie les chiffres.');return}
+  var tot=lk.total();if(!tot||tot>1000000000){err('Montant trop grand. Vérifie les chiffres.');return}
   var known=clientsList().find(function(c){return nameKey(c[1])===nameKey(name)});
-  var o={id:newId(),product:sel,client:known?known[0]:clientId(name),clientName:known?known[1]:name,qty:q,price:pc,ts:Date.now(),date:todayStr()};
+  var o={id:newId(),product:sel,client:known?known[0]:clientId(name),clientName:known?known[1]:name,qty:q,price:pc,total:tot,note:$('note').value.replace(/\s+/g,' ').trim().slice(0,120),ts:Date.now(),date:todayStr()};
   data.pending.push(o);save();
-  $('qty').value='';$('price').value='';$('cli').value='';$('cliRes').innerHTML='';refreshForm();render();
+  $('qty').value='';$('price').value='';$('tot').value='';$('note').value='';$('price').dataset.touched='';cliSet('cliSel','cli','cliNewBox','');lk.reset([]);prefillPrice();refreshForm();render();
   showPop('Commande lancée ✓',o.clientName+' · '+fq(q)+' '+(unitOf(sel)||'')+' · '+fmt(tot)+' DH');
   syncNow();
 }
@@ -495,13 +557,14 @@ function openEdit(id){
   edId=id;edSel=o.p;
   var ps=prods().slice();if(!ps.some(function(p){return p.name===o.p}))ps.push({name:o.p,unit:o.u||''});
   $('edProdBtns').innerHTML=ps.map(function(p){return '<button type="button" class="pchip" data-p="'+esc(p.name)+'" aria-pressed="'+(p.name===edSel?'true':'false')+'">'+esc(p.name)+'</button>'}).join('');
-  $('edCli').value=o.n;$('edQty').value=String(o.q).replace('.',',');$('edPrice').value=(o.pr/100).toFixed(2).replace(/\.00$/,'').replace('.',',');
+  fillCliSel('edCliSel','edCli','edCliNewBox');cliSet('edCliSel','edCli','edCliNewBox',o.n);$('edQty').value=String(o.q).replace('.',',');$('edPrice').value=cents2in(o.pr);$('edTotIn').value=cents2in(o.t);$('edNote').value=o.nt||'';edLk.reset(['qty','price']);
   $('edErr').hidden=true;edRefresh();$('editDlg').hidden=false;$('edQty').focus();
 }
 function edRefresh(){
   var u=unitOf(edSel),q=parseQty($('edQty').value),pc=parseMoney($('edPrice').value);
   $('edQUnit').textContent=u||'';$('edQCap').textContent='Quantité'+(u?' ('+u+')':'');
-  $('edTotLine').textContent=(q&&pc)?fq(q)+(u?' '+u:'')+' × '+fmt(pc)+' DH':'';$('edTotBig').textContent=(q&&pc)?fmt(orderTotal(q,pc))+' DH':'—';
+  var T=edLk?edLk.total():null;
+  $('edTotLine').textContent=(q&&pc)?fq(q)+(u?' '+u:'')+' × '+fmt(pc)+' DH':'';$('edTotBig').textContent=(q&&pc&&T)?fmt(T)+' DH':'—';
 }
 function closeEdit(){$('editDlg').hidden=true;edId=null}
 function saveEdit(){
@@ -511,17 +574,18 @@ function saveEdit(){
   if(name.length<2){err('Écris le nom du client.');return}
   if(!q||q<=0){err('Écris la quantité.');return}
   if(!pc||pc<=0){err('Écris le prix unitaire.');return}
-  if(orderTotal(q,pc)>1000000000){err('Montant trop grand.');return}
+  var tot=edLk.total();if(!tot||tot>1000000000){err('Montant trop grand.');return}
+  var note=$('edNote').value.replace(/\s+/g,' ').trim().slice(0,120);
   var known=clientsList().find(function(c){return nameKey(c[1])===nameKey(name)});
   var cid=known?known[0]:clientId(name),cname=known?known[1]:name;
   if(o.st==='pending'){
     var pe=data.pending.find(function(x){return x.id===edId});
-    if(pe){pe.product=edSel;pe.qty=q;pe.price=pc;pe.client=cid;pe.clientName=cname;save()}
-    closeEdit();render();showPop('Commande modifiée ✓',fmt(orderTotal(q,pc))+' DH');syncNow();return;
+    if(pe){pe.product=edSel;pe.qty=q;pe.price=pc;pe.total=tot;pe.note=note;pe.client=cid;pe.clientName=cname;save()}
+    closeEdit();render();showPop('Commande modifiée ✓',fmt(tot)+' DH');syncNow();return;
   }
   $('edSave').disabled=true;
-  apiWith(data.conn,'editOrder',{id:edId,patch:{product:edSel,qty:q,price:pc,client:cid,clientName:cname},by:data.name}).then(function(){
-    closeEdit();showPop('Commande modifiée ✓',cname+' · '+fmt(orderTotal(q,pc))+' DH');return syncNow();
+  apiWith(data.conn,'editOrder',{id:edId,patch:{product:edSel,qty:q,price:pc,total:tot,note:note,client:cid,clientName:cname},by:data.name}).then(function(){
+    closeEdit();showPop('Commande modifiée ✓',cname+' · '+fmt(tot)+' DH');return syncNow();
   }).catch(function(e){
     err(e.code==='locked'?'Cette commande vient d’être encaissée : elle ne se modifie plus.':(e.code==='forbidden'?'Tu ne peux modifier que tes propres commandes.':(e.code==='network'?'Pas de connexion. Réessaie.':(e.code==='action'?'Le script Google n’est pas à jour : demande au responsable de le mettre à jour.':e.message))));
   }).then(function(){$('edSave').disabled=false});
@@ -570,14 +634,20 @@ function init(){
   $('nameInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();saveName()}});
   $('renameBtn').addEventListener('click',function(){$('nameInput').value=data.name;data.name='';render();$('nameInput').focus()});
   $('ordForm').addEventListener('submit',submitOrder);
-  ['qty','price'].forEach(function(i){$(i).addEventListener('input',refreshForm)});
-  $('cli').addEventListener('input',function(){renderCliRes();refreshForm();var l=lastFor(cleanName($('cli').value),sel);if(l&&!$('price').dataset.touched){$('price').value=(l.pr/100).toFixed(2).replace(/\.00$/,'').replace('.',',');refreshForm()}});
-  $('price').addEventListener('input',function(){this.dataset.touched='1'});
-  $('cliRes').addEventListener('click',function(e){var b=e.target.closest('button[data-c]');if(!b)return;$('cli').value=b.dataset.c;$('cliRes').innerHTML='';$('price').dataset.touched='';var l=lastFor(b.dataset.c,sel);if(l)$('price').value=(l.pr/100).toFixed(2).replace(/\.00$/,'').replace('.',',');refreshForm();$('qty').focus()});
-  $('prodBtns').addEventListener('click',function(e){var b=e.target.closest('button[data-p]');if(!b)return;sel=b.dataset.p;$('price').dataset.touched='';render();var l=lastFor(cleanName($('cli').value),sel);if(l&&!$('price').value){$('price').value=(l.pr/100).toFixed(2).replace(/\.00$/,'').replace('.',',')}refreshForm()});
+  lk=makeLinker({qty:'qty',price:'price',tot:'tot'},refreshForm,function(){return $('price').dataset.touched!=='1'&&$('price').value!==''});
+  edLk=makeLinker({qty:'edQty',price:'edPrice',tot:'edTotIn'},edRefresh);
+  $('qty').addEventListener('input',function(){lk.typed('qty')});
+  $('price').addEventListener('input',function(){this.dataset.touched='1';lk.typed('price')});
+  $('tot').addEventListener('input',function(){lk.typed('tot')});
+  $('edQty').addEventListener('input',function(){edLk.typed('qty')});
+  $('edPrice').addEventListener('input',function(){edLk.typed('price')});
+  $('edTotIn').addEventListener('input',function(){edLk.typed('tot')});
+  $('cliSel').addEventListener('change',function(){cliChange('cliSel','cli','cliNewBox');prefillPrice();refreshForm();if($('cliSel').value&&$('cliSel').value!=='__new')$('qty').focus()});
+  $('cli').addEventListener('input',function(){refreshForm()});
+  $('edCliSel').addEventListener('change',function(){cliChange('edCliSel','edCli','edCliNewBox')});
+  $('prodBtns').addEventListener('click',function(e){var b=e.target.closest('button[data-p]');if(!b)return;sel=b.dataset.p;$('price').dataset.touched='';render();prefillPrice();refreshForm()});
   $('edProdBtns').addEventListener('click',function(e){var b=e.target.closest('button[data-p]');if(!b)return;edSel=b.dataset.p;[].forEach.call($('edProdBtns').children,function(x){x.setAttribute('aria-pressed',x.dataset.p===edSel?'true':'false')});edRefresh()});
-  ['edQty','edPrice'].forEach(function(i){$(i).addEventListener('input',edRefresh)});
-  $('edSave').addEventListener('click',saveEdit);$('edCancel').addEventListener('click',closeEdit);
+    $('edSave').addEventListener('click',saveEdit);$('edCancel').addEventListener('click',closeEdit);
   $('editDlg').addEventListener('click',function(e){if(e.target===$('editDlg'))closeEdit()});
   $('popOk').addEventListener('click',function(){$('pop').hidden=true});
   $('listBox').addEventListener('click',function(e){
