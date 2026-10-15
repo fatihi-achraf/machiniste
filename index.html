@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1d3fa3">
+<meta name="theme-color" content="#0f766e">
 <title>Carnet Production</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -407,8 +407,8 @@ function openUse(id){
   var it=stockItems().find(function(x){return x.id===id});if(!it)return;
   useItem=id;$('useName').innerHTML='<b>'+esc(it.name)+'</b>';
   $('useLeft').textContent='Il en reste '+fq(leftOf(it))+(it.unit?' '+it.unit:'')+'.';
-  $('useUnit').textContent=it.unit||'';$('useQty').value='1';$('useErr').hidden=true;
-  $('useQuick').innerHTML=['0,5','1','2','3','5'].map(function(q){return '<button type="button" class="pchip" data-q="'+q+'">'+q+'</button>'}).join('');
+  $('useUnit').textContent=it.unit||'';$('useQty').style.paddingRight=((it.unit||'').length*11+34)+'px';$('useQty').value='1';$('useErr').hidden=true;
+  $('useQuick').innerHTML=['1','2','3','5','10'].map(function(q){return '<button type="button" class="pchip" data-q="'+q+'">'+q+'</button>'}).join('');
   $('useDlg').hidden=false;$('useQty').focus();$('useQty').select();
 }
 function closeUse(){$('useDlg').hidden=true;useItem=null}
