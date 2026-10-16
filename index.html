@@ -233,6 +233,7 @@ body{padding-block:14px 100px}
   <section class="card" id="listCard" hidden>
     <h2 id="listT">Mes commandes</h2>
     <p class="hint">Les 30 derniers jours. « À encaisser » : l’accueil n’a pas encore reçu le paiement. Tu peux modifier ou annuler une commande tant qu’elle n’est pas encaissée.</p>
+    <input id="listQ" type="search" autocomplete="off" placeholder="Chercher un client, un produit ou une note" aria-label="Chercher une commande" style="min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:100%;margin-block-end:10px">
     <div id="listBox"></div>
   </section>
 
@@ -418,13 +419,15 @@ function rowHtml(o){
   return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+(o.nt?'<div class="meta"><span>📝 '+esc(o.nt)+'</span></div>':'')+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
 }
 function renderList(){
-  var rows=orderRows(),box=$('listBox');
+  var rows=orderRows(),box=$('listBox'),lq=nameKey($('listQ').value);
+  $('listQ').hidden=!rows.length;
+  if(lq){rows=rows.filter(function(o){return nameKey(o.n+' '+o.p+' '+(o.nt||'')).indexOf(lq)>=0});if(!rows.length){box.innerHTML='<div class="empty"><strong>Aucune commande trouvée.</strong>Rien ne correspond à « '+esc($('listQ').value.trim())+' ».</div>';return}}
   if(!rows.length){box.innerHTML='<div class="empty"><strong>Aucune commande.</strong>Lance ta première commande dans l’onglet Commande.</div>';return}
   var grp={},keys=[];rows.forEach(function(o){if(!grp[o.d]){grp[o.d]=[];keys.push(o.d)}grp[o.d].push(o)});
   keys.sort().reverse();
   box.innerHTML=keys.map(function(d,ix){
     var l=grp[d],tot=0,n=0;l.forEach(function(o){if(o.st!=='cancelled'){tot+=o.t;n++}});
-    var op=dayOpen[d]!=null?dayOpen[d]:(ix===0);
+    var op=lq?true:(dayOpen[d]!=null?dayOpen[d]:(ix===0));
     return '<div class="hday'+(op?' open':'')+'" data-d="'+d+'"><button type="button" class="dsum" data-dayt="'+d+'"><b>'+dayName(d)+' '+dLabel(d)+'</b><span>'+n+' commande'+(n>1?'s':'')+' · '+fmt(tot)+' DH</span></button><ul class="ops"'+(op?'':' hidden')+'>'+l.map(rowHtml).join('')+'</ul></div>';
   }).join('');
 }
@@ -638,6 +641,7 @@ function init(){
     $('edSave').addEventListener('click',saveEdit);$('edCancel').addEventListener('click',closeEdit);
   $('editDlg').addEventListener('click',function(e){if(e.target===$('editDlg'))closeEdit()});
   $('popOk').addEventListener('click',function(){$('pop').hidden=true});
+  $('listQ').addEventListener('input',renderList);
   $('listBox').addEventListener('click',function(e){
     var t=e.target.closest('[data-dayt]');
     if(t){var sec=t.parentNode,op=!sec.classList.contains('open');sec.classList.toggle('open',op);var ul=sec.querySelector('.ops');if(ul)ul.hidden=!op;dayOpen[t.dataset.dayt]=op;return}
