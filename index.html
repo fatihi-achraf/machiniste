@@ -156,6 +156,7 @@ details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;alig
 .seg2{display:flex;gap:8px;flex-wrap:wrap}
 .pchip{min-height:48px;padding:0 18px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-weight:600}
 .pchip[aria-pressed="true"]{background:var(--vente-bg);border-color:var(--vente);color:var(--vente)}
+.cliwrap{position:relative}.cliwrap .cres{max-height:240px;overflow-y:auto;margin-block-start:6px;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
 .qrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .qrow .money input{font-size:1.5rem;min-height:56px}
 .hday>.dsum{width:100%;text-align:left;font:inherit;color:inherit;list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:48px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -214,8 +215,7 @@ body{padding-block:14px 100px}
     <p class="notice" id="noProd" hidden>Aucun produit de production n’est défini. Demande au responsable de cocher « produit de production » dans la fiche du produit.</p>
     <form id="ordForm" autocomplete="off" style="display:flex;flex-direction:column;gap:14px">
       <div class="group"><legend>Produit</legend><div class="seg2" id="prodBtns"></div></div>
-      <label class="field"><span>Client</span><select id="cliSel" aria-label="Client"></select></label>
-      <label class="field" id="cliNewBox" hidden><span>Nom du nouveau client</span><input id="cli" maxlength="60" autocomplete="off" placeholder="Écris le nom du client"></label>
+      <div class="field cliwrap"><label for="cli"><span style="font-size:.72rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)">Client</span></label><input id="cli" maxlength="60" autocomplete="off" placeholder="Choisis ou écris le nom du client"><div class="cres" id="cliRes" hidden></div></div>
       <div class="qrow">
         <label class="field"><span id="qCap">Quantité</span><div class="money"><input id="qty" inputmode="decimal" autocomplete="off" placeholder="0"><i id="qUnit"></i></div></label>
         <label class="field"><span id="pCap">Prix unitaire</span><div class="money"><input id="price" inputmode="decimal" autocomplete="off" placeholder="0,00"><i id="pUnit">DH</i></div></label>
@@ -262,8 +262,7 @@ body{padding-block:14px 100px}
 <div class="dlg" id="editDlg" hidden role="dialog" aria-modal="true" aria-labelledby="edT"><div>
   <h2 id="edT">Modifier la commande</h2>
   <div class="group"><legend>Produit</legend><div class="seg2" id="edProdBtns"></div></div>
-  <label class="field"><span>Client</span><select id="edCliSel" aria-label="Client"></select></label>
-  <label class="field" id="edCliNewBox" hidden><span>Nom du nouveau client</span><input id="edCli" maxlength="60" autocomplete="off" placeholder="Écris le nom du client"></label>
+  <div class="field cliwrap"><label for="edCli"><span style="font-size:.72rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)">Client</span></label><input id="edCli" maxlength="60" autocomplete="off" placeholder="Choisis ou écris le nom du client"><div class="cres" id="edCliRes" hidden></div></div>
   <div class="qrow">
     <label class="field"><span id="edQCap">Quantité</span><div class="money"><input id="edQty" inputmode="decimal" autocomplete="off"><i id="edQUnit"></i></div></label>
     <label class="field"><span>Prix unitaire</span><div class="money"><input id="edPrice" inputmode="decimal" autocomplete="off"><i>DH</i></div></label>
@@ -333,28 +332,15 @@ function ceilDH(c){return Math.ceil(Math.round(c*1000)/1000/100-1e-9)*100}
 function orderTotal(q,pc){return ceilDH(q*pc)}
 function prodPrice(name){var p=prods().find(function(x){return x.name===name});return (p&&p.price)||0}
 function cents2in(c){return (c/100).toFixed(2).replace(/\.00$/,'').replace('.',',')}
-/* client : liste déroulante + saisie d'un nouveau nom */
-function fillCliSel(selId,inId,boxId,cur){
-  var sl=$(selId),names=clientsList().map(function(c){return c[1]}),sig=names.join('|');
-  if(sl.dataset.sig!==sig){
-    var keep=sl.value;
-    sl.innerHTML='<option value="">— Choisir un client —</option>'+names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('')+'<option value="__new">＋ Nouveau client…</option>';
-    sl.dataset.sig=sig;
-    if(keep&&(keep==='__new'||names.indexOf(keep)>=0))sl.value=keep;
-  }
+/* client : la liste s'ouvre sous le champ ; on choisit un nom ou on écrit librement (un nom écrit n'est pas ajouté à la liste des clients) */
+function showCliRes(inId,resId){
+  var inp=$(inId),box=$(resId),q=nameKey(inp.value),all=clientsList();
+  var m=all.filter(function(c){return !q||nameKey(c[1]).indexOf(q)>=0}).slice(0,40);
+  if(!m.length){box.hidden=true;box.innerHTML='';return}
+  box.innerHTML=m.map(function(c){return '<button type="button" data-c="'+esc(c[1])+'">'+esc(c[1])+'</button>'}).join('');
+  box.hidden=false;
 }
-function cliChange(selId,inId,boxId){
-  var sl=$(selId),inp=$(inId),box=$(boxId);
-  if(sl.value==='__new'){box.hidden=false;inp.value='';inp.focus()}
-  else{box.hidden=true;inp.value=sl.value}
-}
-function cliSet(selId,inId,boxId,name){
-  var sl=$(selId),inp=$(inId),box=$(boxId);
-  if(!name){sl.value='';inp.value='';box.hidden=true;return}
-  var hit=clientsList().find(function(c){return nameKey(c[1])===nameKey(name)});
-  if(hit){sl.value=hit[1];inp.value=hit[1];box.hidden=true}
-  else{sl.value='__new';inp.value=name;box.hidden=false}
-}
+function hideCliRes(){['cliRes','edCliRes'].forEach(function(i){var b=$(i);if(b)b.hidden=true})}
 /* quantité, prix, total : on écrit deux, le troisième se remplit */
 function makeLinker(ids,onChange,priceLocked){
   var rec=[];
@@ -390,7 +376,6 @@ function render(){
   var ps=prods();$('noProd').hidden=ps.length>0;$('ordForm').hidden=!ps.length;
   if(!sel||!ps.some(function(p){return p.name===sel}))sel=ps.length?ps[0].name:'';
   $('prodBtns').innerHTML=ps.map(function(p){return '<button type="button" class="pchip" data-p="'+esc(p.name)+'" aria-pressed="'+(p.name===sel?'true':'false')+'">'+esc(p.name)+'</button>'}).join('');
-  fillCliSel('cliSel','cli','cliNewBox');fillCliSel('edCliSel','edCli','edCliNewBox');
   if(!$('price').value&&!$('price').dataset.touched)prefillPrice();
   refreshForm();renderList();renderStock();
 }
@@ -538,8 +523,7 @@ function submitOrder(e){
   er.hidden=true;
   var name=cleanName($('cli').value),q=parseQty($('qty').value),pc=parseMoney($('price').value);
   if(!sel){err('Choisis le produit.');return}
-  if($('cliSel').value==='__new'&&name.length<2){err('Écris le nom du nouveau client.',$('cli'));return}
-  if(name.length<2){err('Choisis le client dans la liste.',$('cliSel'));return}
+  if(name.length<2){err('Choisis ou écris le client.',$('cli'));return}
   if(!q||q<=0){err('Écris la quantité.',$('qty'));return}
   if(q>100000){err('Quantité trop grande. Vérifie les chiffres.',$('qty'));return}
   if(!pc||pc<=0){err('Écris le prix unitaire.',$('price'));return}
@@ -547,7 +531,7 @@ function submitOrder(e){
   var known=clientsList().find(function(c){return nameKey(c[1])===nameKey(name)});
   var o={id:newId(),product:sel,client:known?known[0]:clientId(name),clientName:known?known[1]:name,qty:q,price:pc,total:tot,note:$('note').value.replace(/\s+/g,' ').trim().slice(0,120),ts:Date.now(),date:todayStr()};
   data.pending.push(o);save();
-  $('qty').value='';$('price').value='';$('tot').value='';$('note').value='';$('price').dataset.touched='';cliSet('cliSel','cli','cliNewBox','');lk.reset([]);prefillPrice();refreshForm();render();
+  $('qty').value='';$('price').value='';$('tot').value='';$('note').value='';$('price').dataset.touched='';$('cli').value='';hideCliRes();lk.reset([]);prefillPrice();refreshForm();render();
   showPop('Commande lancée ✓',o.clientName+' · '+fq(q)+' '+(unitOf(sel)||'')+' · '+fmt(tot)+' DH');
   syncNow();
 }
@@ -557,7 +541,7 @@ function openEdit(id){
   edId=id;edSel=o.p;
   var ps=prods().slice();if(!ps.some(function(p){return p.name===o.p}))ps.push({name:o.p,unit:o.u||''});
   $('edProdBtns').innerHTML=ps.map(function(p){return '<button type="button" class="pchip" data-p="'+esc(p.name)+'" aria-pressed="'+(p.name===edSel?'true':'false')+'">'+esc(p.name)+'</button>'}).join('');
-  fillCliSel('edCliSel','edCli','edCliNewBox');cliSet('edCliSel','edCli','edCliNewBox',o.n);$('edQty').value=String(o.q).replace('.',',');$('edPrice').value=cents2in(o.pr);$('edTotIn').value=cents2in(o.t);$('edNote').value=o.nt||'';edLk.reset(['qty','price']);
+  $('edCli').value=o.n;hideCliRes();$('edQty').value=String(o.q).replace('.',',');$('edPrice').value=cents2in(o.pr);$('edTotIn').value=cents2in(o.t);$('edNote').value=o.nt||'';edLk.reset(['qty','price']);
   $('edErr').hidden=true;edRefresh();$('editDlg').hidden=false;$('edQty').focus();
 }
 function edRefresh(){
@@ -642,9 +626,13 @@ function init(){
   $('edQty').addEventListener('input',function(){edLk.typed('qty')});
   $('edPrice').addEventListener('input',function(){edLk.typed('price')});
   $('edTotIn').addEventListener('input',function(){edLk.typed('tot')});
-  $('cliSel').addEventListener('change',function(){cliChange('cliSel','cli','cliNewBox');prefillPrice();refreshForm();if($('cliSel').value&&$('cliSel').value!=='__new')$('qty').focus()});
-  $('cli').addEventListener('input',function(){refreshForm()});
-  $('edCliSel').addEventListener('change',function(){cliChange('edCliSel','edCli','edCliNewBox')});
+  $('cli').addEventListener('focus',function(){showCliRes('cli','cliRes')});
+  $('cli').addEventListener('input',function(){showCliRes('cli','cliRes');prefillPrice();refreshForm()});
+  $('edCli').addEventListener('focus',function(){showCliRes('edCli','edCliRes')});
+  $('edCli').addEventListener('input',function(){showCliRes('edCli','edCliRes')});
+  $('cliRes').addEventListener('click',function(e){var b=e.target.closest('button[data-c]');if(!b)return;$('cli').value=b.dataset.c;hideCliRes();prefillPrice();refreshForm();$('qty').focus()});
+  $('edCliRes').addEventListener('click',function(e){var b=e.target.closest('button[data-c]');if(!b)return;$('edCli').value=b.dataset.c;hideCliRes()});
+  document.addEventListener('click',function(e){if(!e.target.closest('.cliwrap'))hideCliRes()});
   $('prodBtns').addEventListener('click',function(e){var b=e.target.closest('button[data-p]');if(!b)return;sel=b.dataset.p;$('price').dataset.touched='';render();prefillPrice();refreshForm()});
   $('edProdBtns').addEventListener('click',function(e){var b=e.target.closest('button[data-p]');if(!b)return;edSel=b.dataset.p;[].forEach.call($('edProdBtns').children,function(x){x.setAttribute('aria-pressed',x.dataset.p===edSel?'true':'false')});edRefresh()});
     $('edSave').addEventListener('click',saveEdit);$('edCancel').addEventListener('click',closeEdit);
