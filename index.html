@@ -107,7 +107,7 @@ form[data-type="reglement"]{--btn:var(--btn-regl)}
 .cres button{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);text-align:left}
 .cres button small{color:var(--ink-2);font-family:var(--f-mono);white-space:nowrap}
 .cres button.new{border-style:dashed;font-weight:600}
-.cbtn{min-height:38px;padding:0 10px;border-radius:10px;font-weight:600;font-size:.84rem;white-space:nowrap;border:1.5px solid var(--line);background:var(--surface);color:var(--ink)}.cbtn.p{border:0;background:var(--btn,var(--btn-vente));color:var(--on-btn)}.cline{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;margin-block:4px;font-size:.8rem;color:var(--ink-2)}
+.codechip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:10px;border:1.5px dashed var(--line);background:var(--surface-2,var(--surface));color:var(--ink);font-family:var(--f-mono,ui-monospace,monospace);font-weight:700;font-size:1.02rem;letter-spacing:.14em}.pbtn{width:44px;height:44px;border-radius:50%;border:0;background:var(--btn,var(--btn-vente));color:var(--on-btn);display:grid;place-items:center;flex:none}.cline{display:flex;align-items:center;gap:10px;margin-block:8px 4px}
 .mini{border:0;background:none;padding:6px 8px;margin-block:-6px;margin-inline:-8px;color:var(--ink-2);text-decoration:underline;font-size:.8rem;min-height:32px}
 .mini.arm{color:var(--charge);font-weight:600}
 .empty{padding:20px 16px;border:1.5px dashed var(--line);border-radius:12px;color:var(--ink-2)}
@@ -261,7 +261,8 @@ body{padding-block:14px 100px}
       <div style="margin-block-start:12px;display:flex;flex-direction:column;gap:10px">
         <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" id="lblOn" style="width:22px;height:22px"> Imprimer l’étiquette quand je lance une commande</label>
         <div style="display:flex;gap:10px"><label style="flex:1;font-size:.85rem">Largeur (mm)<input id="lblW" type="number" inputmode="numeric" min="20" max="120" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label><label style="flex:1;font-size:.85rem">Hauteur (mm)<input id="lblH" type="number" inputmode="numeric" min="15" max="120" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label></div>
-        <button class="ghost" id="lblTest" type="button">Imprimer une étiquette test</button>
+        <label style="font-size:.85rem">Résolution de l’imprimante<select id="lblD" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"><option value="8">203 dpi (courant)</option><option value="12">300 dpi</option></select></label>
+        <button class="ghost" id="lblTest" type="button">Aperçu et étiquette test</button>
         <p class="hint">Réglage propre à cet appareil : à activer seulement sur l’ordinateur branché à l’imprimante. L’étiquette part sur l’imprimante par défaut. Sans imprimante, la commande est quand même enregistrée.</p>
       </div>
     </details>
@@ -430,9 +431,9 @@ function orderRows(){
 function rowHtml(o){
   var st=o.st,tag=st==='open'?'<span class="tag open">À encaisser</span>':(st==='paid'?'<span class="tag paid">Payée</span>':(st==='cancelled'?'<span class="tag off">Annulée</span>':'<span class="tag open">En attente d’envoi</span>'));
   var t=new Date(o.s),editable=(st==='open'||st==='pending'),code=orderCode(o.id);
-  var lbBtn=(lbl.on&&st!=='cancelled')?'<button type="button" class="cbtn p" data-olbl="'+esc(o.id)+'">Étiquette</button>':'';
+  var lbBtn=(lbl.on&&st!=='cancelled')?'<button type="button" class="pbtn" data-olbl="'+esc(o.id)+'" aria-label="Imprimer l’étiquette"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg></button>':'';
   var btns=editable?'<div class="rowbtn">'+(editable?'<button type="button" class="mini" data-oedit="'+esc(o.id)+'">Modifier</button><button type="button" class="mini'+(armed===o.id?' arm':'')+'" data-ocancel="'+esc(o.id)+'">'+(armed===o.id?'Confirmer l’annulation ?':'Annuler')+'</button>':'')+'</div>':'';
-  return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+(o.nt?'<div class="meta"><span>📝 '+esc(o.nt)+'</span></div>':'')+(st!=='cancelled'?'<div class="cline"><span style="white-space:nowrap">Code <b style="letter-spacing:.1em;color:var(--ink)">'+code+'</b></span><button type="button" class="cbtn" data-ocopy="'+code+'">Copier</button>'+lbBtn+'</div>':'')+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
+  return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+(o.nt?'<div class="meta"><span>📝 '+esc(o.nt)+'</span></div>':'')+(st!=='cancelled'?'<div class="cline"><button type="button" class="codechip" data-ocopy="'+code+'" aria-label="Copier le code '+code+'">'+code+' <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>'+lbBtn+'</div>':'')+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
 }
 function renderList(){
   var rows=orderRows(),box=$('listBox'),lq=nameKey($('listQ').value);
@@ -537,41 +538,73 @@ function syncNow(quiet){
 
 /* ---------- actions ---------- */
 /* ---- étiquettes code-barres (Code 128) ---- */
-var LBL_KEY='carnet-prod-label-v1',lbl={on:false,w:50,h:30};
-function lblLoad(){try{var p=JSON.parse(localStorage.getItem(LBL_KEY)||'null');if(p){lbl.on=!!p.on;lbl.w=Math.min(120,Math.max(20,Number(p.w)||50));lbl.h=Math.min(120,Math.max(15,Number(p.h)||30))}}catch(e){}}
+var LBL_KEY='carnet-prod-label-v1',lbl={on:false,w:60,h:40,dpmm:8};
+function lblLoad(){try{var p=JSON.parse(localStorage.getItem(LBL_KEY)||'null');if(p){lbl.on=!!p.on;lbl.w=Math.min(120,Math.max(20,Number(p.w)||60));lbl.h=Math.min(120,Math.max(15,Number(p.h)||40));lbl.dpmm=Number(p.dpmm)===12?12:8}}catch(e){}}
 function lblSave(){try{localStorage.setItem(LBL_KEY,JSON.stringify(lbl))}catch(e){}}
 var C128=["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
 function orderCode(id){return String(id||'').slice(-6).toUpperCase()}
-function code128Svg(txt,wmm,hmm){
+/* Étiquette dessinée en image à la résolution exacte de l'imprimante (1 point = 1 pixel) : les barres restent nettes et lisibles */
+function code128Mods(txt){
   var v=[104],sum=104,i;
   for(i=0;i<txt.length;i++){var c=txt.charCodeAt(i)-32;if(c<0||c>94)c=0;v.push(c);sum+=c*(i+1)}
   v.push(sum%103);v.push(106);
-  var x=10,bars='';/* 10 modules de silence de chaque côté */
-  v.forEach(function(k){var p=C128[k];for(var j=0;j<p.length;j++){var w=+p.charAt(j);if(j%2===0)bars+='<rect x="'+x+'" y="0" width="'+w+'" height="1"/>';x+=w}});
-  var tot=x+10;
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+tot+' 1" preserveAspectRatio="none" width="'+wmm+'mm" height="'+hmm+'mm" shape-rendering="crispEdges" fill="#000">'+bars+'</svg>';
+  var out=[];v.forEach(function(k){var p=C128[k];for(var j=0;j<p.length;j++)out.push(+p.charAt(j))});
+  return out;/* largeurs alternées : barre, espace, barre… */
 }
-function code128VSvg(txt,wmm,hmm){
-  var v=[104],sum=104,i;
-  for(i=0;i<txt.length;i++){var c=txt.charCodeAt(i)-32;if(c<0||c>94)c=0;v.push(c);sum+=c*(i+1)}
-  v.push(sum%103);v.push(106);
-  var x=6,bars='';
-  v.forEach(function(k){var p=C128[k];for(var j=0;j<p.length;j++){var w=+p.charAt(j);if(j%2===0)bars+='<rect x="0" y="'+x+'" width="1" height="'+w+'"/>';x+=w}});
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 '+(x+6)+'" preserveAspectRatio="none" width="'+wmm+'" height="'+hmm+'" shape-rendering="crispEdges" fill="#000">'+bars+'</svg>';
+function lblWrap(c,txt,maxW){
+  var words=String(txt).split(/\s+/).filter(Boolean),lines=[],cur='';
+  words.forEach(function(w){
+    while(c.measureText(w).width>maxW&&w.length>1){var k=w.length;while(k>1&&c.measureText(w.slice(0,k)).width>maxW)k--;if(cur){lines.push(cur);cur=''}lines.push(w.slice(0,k));w=w.slice(k)}
+    var t=cur?cur+' '+w:w;if(c.measureText(t).width<=maxW)cur=t;else{if(cur)lines.push(cur);cur=w}
+  });
+  if(cur)lines.push(cur);return lines;
 }
-/* code-barres vertical (barres couchées) à gauche : lisible même collé sur un rouleau rond */
+function lblCanvas(o){
+  var d=lbl.dpmm||8,W=Math.round(lbl.w*d),H=Math.round(lbl.h*d),s=d/8*Math.min(lbl.w/60,lbl.h/40);
+  var cv=document.createElement('canvas');cv.width=W;cv.height=H;var c=cv.getContext('2d');
+  c.fillStyle='#fff';c.fillRect(0,0,W,H);c.fillStyle='#000';c.textBaseline='top';
+  var pad=Math.round(14*s),FF='Arial,Helvetica,sans-serif',code=orderCode(o.id);
+  /* code-barres horizontal en bas : module = 3 points (0,37 mm) à 203 dpi */
+  var mods=code128Mods(code),tm=0;mods.forEach(function(w){tm+=w});
+  var mp=Math.max(2,Math.round(0.375*d));while(mp>2&&(tm+20)*mp>W-2*pad)mp--;
+  var bw=tm*mp,codeH=Math.round(22*s),bh=Math.round(66*s),barTop=H-pad-codeH-bh;
+  var x=Math.round((W-bw)/2);
+  mods.forEach(function(w,i){if(i%2===0)c.fillRect(x,barTop,w*mp,bh);x+=w*mp});
+  c.font='600 '+Math.round(20*s)+'px '+FF;c.textAlign='center';c.fillText(code.split('').join(' '),W/2,barTop+bh+Math.round(3*s));
+  /* total en gros, juste au-dessus du code-barres */
+  var tot=fmt(o.t),tf=Math.round(64*s),w;
+  for(;;){c.font='800 '+tf+'px '+FF;var dh=Math.round(tf*.45);var wt=c.measureText(tot).width;c.font='700 '+dh+'px '+FF;w=wt+c.measureText(' DH').width;if(w<=W-2*pad||tf<=24*s)break;tf-=2}
+  var ty=barTop-tf-Math.round(8*s);
+  c.textAlign='left';c.font='800 '+tf+'px '+FF;var tw=c.measureText(tot).width;var tx=W-pad-w;c.fillText(tot,tx,ty);
+  c.font='700 '+Math.round(tf*.45)+'px '+FF;c.fillText(' DH',tx+tw,ty+tf-Math.round(tf*.45)-Math.round(tf*.06));
+  /* nom du client (1 à 2 lignes) puis produit et date */
+  var nm=String(o.n||''),meta=(o.p||'')+((o.p&&o.d)?' · ':'')+(o.d?dLabel(o.d):''),mf=Math.round(26*s),nf=Math.round(46*s),lines,room;
+  for(;;){
+    c.font='800 '+nf+'px '+FF;lines=lblWrap(c,nm,W-2*pad);
+    room=ty-pad-mf-Math.round(10*s);
+    if((lines.length<=2&&lines.length*nf*1.06<=room)||nf<=22*s)break;nf-=2;
+  }
+  lines=lines.slice(0,2);var y=pad;
+  c.textAlign='left';lines.forEach(function(l){c.font='800 '+nf+'px '+FF;c.fillText(l,pad,y);y+=Math.round(nf*1.06)});
+  c.font='500 '+mf+'px '+FF;var mt=meta;while(mt.length>3&&c.measureText(mt).width>W-2*pad)mt=mt.slice(0,-2);if(mt!==meta)mt=mt.replace(/\s+$/,'')+'…';
+  c.fillText(mt,pad,Math.min(y+Math.round(4*s),ty-mf-Math.round(2*s)));
+  /* noir et blanc pur (pas de gris) pour une impression thermique nette */
+  var im=c.getImageData(0,0,W,H),px=im.data;
+  for(var i=0;i<px.length;i+=4){var v=px[i]*.3+px[i+1]*.59+px[i+2]*.11<150?0:255;px[i]=px[i+1]=px[i+2]=v;px[i+3]=255}
+  c.putImageData(im,0,0);
+  return cv;
+}
 function lblHtml(o){
-  var W=lbl.w,H=lbl.h,code=orderCode(o.id),k=Math.min(W/50,H/30,1.6),mm=function(x){return (x*k).toFixed(2)+'mm'};
-  var q=fq(o.q)+(o.u?' '+o.u:'')+' × '+fmt(o.pr)+' DH',pl=o.p+(o.nt?' · '+o.nt:'');
-  var d=o.d?dLabel(o.d):dLabel(todayStr());
-  return '<!doctype html><html><head><meta charset="utf-8"><style>@page{size:'+W+'mm '+H+'mm;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{width:'+W+'mm;height:'+H+'mm;padding:1.5mm 2mm;font-family:Arial,Helvetica,sans-serif;color:#000;overflow:hidden;display:flex;gap:1.5mm}'
-   +'.bc{flex:none;display:flex;gap:.6mm;align-items:stretch;line-height:0}.bc svg{flex:none;display:block}.cd{writing-mode:vertical-rl;transform:rotate(180deg);font-size:2.3mm;letter-spacing:.35mm;line-height:1;text-align:center}'
-   +'.i{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between}'
-   +'.n{font-weight:800;font-size:'+mm(5.6)+';line-height:1.02;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}'
-   +'.p{font-size:'+mm(3.1)+';line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}.q{font-size:'+mm(3.3)+';white-space:nowrap}'
-   +'.t{font-weight:800;font-size:'+mm(7.4)+';line-height:1;text-align:right;white-space:nowrap}.t small{font-size:'+mm(3.6)+';font-weight:700}.d{font-size:'+mm(2.5)+'}</style></head><body>'
-   +'<div class="bc">'+code128VSvg(code,mm(9),(H-3)+'mm')+'<div class="cd">'+esc(code)+'</div></div>'
-   +'<div class="i"><div><div class="n">'+esc(o.n)+'</div><div class="p">'+esc(pl)+'</div></div><div><div class="q">'+esc(q)+'</div><div class="t">'+fmt(o.t)+' <small>DH</small></div></div><div class="d">'+esc(d)+'</div></div></body></html>';
+  var url=lblCanvas(o).toDataURL('image/png');
+  return '<!doctype html><html><head><meta charset="utf-8"><style>@page{size:'+lbl.w+'mm '+lbl.h+'mm;margin:0}html,body{margin:0;padding:0;background:#fff}body{width:'+lbl.w+'mm;height:'+lbl.h+'mm;overflow:hidden}img{display:block;width:'+lbl.w+'mm;height:'+lbl.h+'mm;image-rendering:pixelated}</style></head><body><img alt="Étiquette" src="'+url+'"></body></html>';
+}
+function lblPreview(o){
+  var old=document.getElementById('lblPrev');if(old)old.remove();
+  var url=lblCanvas(o).toDataURL('image/png'),d=document.createElement('div');d.id='lblPrev';
+  d.style.cssText='position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px';
+  d.innerHTML='<div style="background:var(--surface);color:var(--ink);border-radius:16px;padding:16px;max-width:460px;width:100%;display:flex;flex-direction:column;gap:12px"><b>Aperçu de l’étiquette ('+lbl.w+' × '+lbl.h+' mm)</b><img alt="Étiquette" src="'+url+'" style="width:100%;border:1px solid var(--line);border-radius:6px;background:#fff"><button class="primary" id="lpPrint" type="button">Imprimer</button><a class="ghost" id="lpSave" download="etiquette-'+orderCode(o.id)+'.png" href="'+url+'">Enregistrer l’image (PNG)</a><button class="ghost" id="lpX" type="button">Fermer</button></div>';
+  document.body.appendChild(d);
+  d.addEventListener('click',function(e){if(e.target===d||e.target.id==='lpX')d.remove();else if(e.target.id==='lpPrint')printLabel(o)});
 }
 function copyCode(code){
   function ok(){toast('Code '+code+' copié')}
@@ -598,12 +631,12 @@ function printLabel(o){
 }
 function lblSettingsInit(){
   lblLoad();
-  $('lblOn').checked=lbl.on;$('lblW').value=lbl.w;$('lblH').value=lbl.h;
-  function rd(){lbl.on=$('lblOn').checked;$('codeBox').hidden=!lbl.on;lbl.w=Math.min(120,Math.max(20,Number($('lblW').value)||50));lbl.h=Math.min(120,Math.max(15,Number($('lblH').value)||30));lblSave();renderList()}
+  $('lblOn').checked=lbl.on;$('lblW').value=lbl.w;$('lblH').value=lbl.h;$('lblD').value=String(lbl.dpmm);
+  function rd(){lbl.on=$('lblOn').checked;$('codeBox').hidden=!lbl.on;lbl.w=Math.min(120,Math.max(20,Number($('lblW').value)||60));lbl.h=Math.min(120,Math.max(15,Number($('lblH').value)||40));lbl.dpmm=$('lblD').value==='12'?12:8;lblSave();renderList()}
   $('codeBox').hidden=!lbl.on;
   $('codeGo').addEventListener('click',codePrint);$('codeIn').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();codePrint()}});
-  $('lblOn').addEventListener('change',rd);$('lblW').addEventListener('change',rd);$('lblH').addEventListener('change',rd);
-  $('lblTest').addEventListener('click',function(){rd();printLabel({id:'otest'+Date.now().toString(36),p:'Sublimation',n:'Client test',q:12.5,u:'m',pr:1500,t:18750,nt:'Essai étiquette',d:todayStr()})});
+  $('lblOn').addEventListener('change',rd);$('lblW').addEventListener('change',rd);$('lblH').addEventListener('change',rd);$('lblD').addEventListener('change',rd);
+  $('lblTest').addEventListener('click',function(){rd();lblPreview({id:'otest'+Date.now().toString(36),p:'Sublimation',n:'Client test',q:12.5,u:'m',pr:1500,t:18750,nt:'Essai étiquette',d:todayStr()})});
 }
 function submitOrder(e){
   e.preventDefault();
