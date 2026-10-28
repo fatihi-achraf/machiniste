@@ -233,6 +233,12 @@ body{padding-block:14px 100px}
   <section class="card" id="listCard" hidden>
     <h2 id="listT">Mes commandes</h2>
     <p class="hint">Les 30 derniers jours. « À encaisser » : l’accueil n’a pas encore reçu le paiement. Tu peux modifier ou annuler une commande tant qu’elle n’est pas encaissée.</p>
+    <div id="codeBox" hidden style="margin-block:4px 14px;padding:12px;border:1.5px dashed var(--line);border-radius:12px;display:flex;flex-direction:column;gap:8px">
+      <b>Imprimer une étiquette par code</b>
+      <span class="hint">Pour une commande d’un autre machiniste ou de Vente quick : écris (ou scanne) son code de 6 caractères.</span>
+      <div style="display:flex;gap:8px"><input id="codeIn" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="Ex : AB1C2D" aria-label="Code de la commande" style="flex:1;min-height:50px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase"><button class="primary" id="codeGo" type="button" style="min-height:50px">Imprimer</button></div>
+      <p class="hint" id="codeMsg" hidden></p>
+    </div>
     <input id="listQ" type="search" autocomplete="off" placeholder="Chercher un client, un produit ou une note" aria-label="Chercher une commande" style="min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:100%;margin-block-end:10px">
     <div id="listBox"></div>
   </section>
@@ -249,6 +255,14 @@ body{padding-block:14px 100px}
   <section class="card" id="connInfoCard" hidden>
     <details><summary>Connexion Google Sheet</summary>
       <div style="margin-block-start:12px;display:flex;flex-direction:column;gap:10px"><p class="hint" id="connInfo"></p><button class="ghost" id="connStop" type="button">Se déconnecter</button></div>
+    </details>
+    <details style="margin-block-start:10px"><summary>Étiquettes code-barres</summary>
+      <div style="margin-block-start:12px;display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" id="lblOn" style="width:22px;height:22px"> Imprimer l’étiquette quand je lance une commande</label>
+        <div style="display:flex;gap:10px"><label style="flex:1;font-size:.85rem">Largeur (mm)<input id="lblW" type="number" inputmode="numeric" min="20" max="120" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label><label style="flex:1;font-size:.85rem">Hauteur (mm)<input id="lblH" type="number" inputmode="numeric" min="15" max="120" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label></div>
+        <button class="ghost" id="lblTest" type="button">Imprimer une étiquette test</button>
+        <p class="hint">Réglage propre à cet appareil : à activer seulement sur l’ordinateur branché à l’imprimante. L’étiquette part sur l’imprimante par défaut. Sans imprimante, la commande est quand même enregistrée.</p>
+      </div>
     </details>
   </section>
 </main>
@@ -414,9 +428,10 @@ function orderRows(){
 }
 function rowHtml(o){
   var st=o.st,tag=st==='open'?'<span class="tag open">À encaisser</span>':(st==='paid'?'<span class="tag paid">Payée</span>':(st==='cancelled'?'<span class="tag off">Annulée</span>':'<span class="tag open">En attente d’envoi</span>'));
-  var t=new Date(o.s),editable=(st==='open'||st==='pending');
-  var btns=editable?'<div class="rowbtn"><button type="button" class="mini" data-oedit="'+esc(o.id)+'">Modifier</button><button type="button" class="mini'+(armed===o.id?' arm':'')+'" data-ocancel="'+esc(o.id)+'">'+(armed===o.id?'Confirmer l’annulation ?':'Annuler')+'</button></div>':'';
-  return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+(o.nt?'<div class="meta"><span>📝 '+esc(o.nt)+'</span></div>':'')+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
+  var t=new Date(o.s),editable=(st==='open'||st==='pending'),code=orderCode(o.id);
+  var lbBtn=(lbl.on&&st!=='cancelled')?'<button type="button" class="mini" data-olbl="'+esc(o.id)+'">Étiquette</button>':'';
+  var btns=(editable||lbBtn)?'<div class="rowbtn">'+lbBtn+(editable?'<button type="button" class="mini" data-oedit="'+esc(o.id)+'">Modifier</button><button type="button" class="mini'+(armed===o.id?' arm':'')+'" data-ocancel="'+esc(o.id)+'">'+(armed===o.id?'Confirmer l’annulation ?':'Annuler')+'</button>':'')+'</div>':'';
+  return '<li class="ordrow'+(st==='cancelled'?' off':'')+'"><div><div class="lbl"><b>'+esc(o.n)+'</b> · '+esc(o.p)+'</div><div class="meta"><span>'+fq(o.q)+(o.u?' '+esc(o.u):'')+' × '+fmt(o.pr)+' DH'+' · '+pad(t.getHours())+':'+pad(t.getMinutes())+'</span>'+tag+'</div>'+(o.nt?'<div class="meta"><span>📝 '+esc(o.nt)+'</span></div>':'')+(st!=='cancelled'?'<div class="meta"><span>Code : <b style="letter-spacing:.1em">'+code+'</b></span><button type="button" class="mini" data-ocopy="'+code+'">Copier</button></div>':'')+btns+'</div><div class="amt">'+fmt(o.t)+'</div></li>';
 }
 function renderList(){
   var rows=orderRows(),box=$('listBox'),lq=nameKey($('listQ').value);
@@ -520,6 +535,75 @@ function syncNow(quiet){
 }
 
 /* ---------- actions ---------- */
+/* ---- étiquettes code-barres (Code 128) ---- */
+var LBL_KEY='carnet-prod-label-v1',lbl={on:false,w:50,h:30};
+function lblLoad(){try{var p=JSON.parse(localStorage.getItem(LBL_KEY)||'null');if(p){lbl.on=!!p.on;lbl.w=Math.min(120,Math.max(20,Number(p.w)||50));lbl.h=Math.min(120,Math.max(15,Number(p.h)||30))}}catch(e){}}
+function lblSave(){try{localStorage.setItem(LBL_KEY,JSON.stringify(lbl))}catch(e){}}
+var C128=["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+function orderCode(id){return String(id||'').slice(-6).toUpperCase()}
+function code128Svg(txt,wmm,hmm){
+  var v=[104],sum=104,i;
+  for(i=0;i<txt.length;i++){var c=txt.charCodeAt(i)-32;if(c<0||c>94)c=0;v.push(c);sum+=c*(i+1)}
+  v.push(sum%103);v.push(106);
+  var x=10,bars='';/* 10 modules de silence de chaque côté */
+  v.forEach(function(k){var p=C128[k];for(var j=0;j<p.length;j++){var w=+p.charAt(j);if(j%2===0)bars+='<rect x="'+x+'" y="0" width="'+w+'" height="1"/>';x+=w}});
+  var tot=x+10;
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+tot+' 1" preserveAspectRatio="none" width="'+wmm+'mm" height="'+hmm+'mm" shape-rendering="crispEdges" fill="#000">'+bars+'</svg>';
+}
+function code128VSvg(txt,wmm,hmm){
+  var v=[104],sum=104,i;
+  for(i=0;i<txt.length;i++){var c=txt.charCodeAt(i)-32;if(c<0||c>94)c=0;v.push(c);sum+=c*(i+1)}
+  v.push(sum%103);v.push(106);
+  var x=6,bars='';
+  v.forEach(function(k){var p=C128[k];for(var j=0;j<p.length;j++){var w=+p.charAt(j);if(j%2===0)bars+='<rect x="0" y="'+x+'" width="1" height="'+w+'"/>';x+=w}});
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 '+(x+6)+'" preserveAspectRatio="none" width="'+wmm+'" height="'+hmm+'" shape-rendering="crispEdges" fill="#000">'+bars+'</svg>';
+}
+/* code-barres vertical (barres couchées) à gauche : lisible même collé sur un rouleau rond */
+function lblHtml(o){
+  var W=lbl.w,H=lbl.h,code=orderCode(o.id),k=Math.min(W/50,H/30,1.6),mm=function(x){return (x*k).toFixed(2)+'mm'};
+  var q=fq(o.q)+(o.u?' '+o.u:'')+' × '+fmt(o.pr)+' DH',pl=o.p+(o.nt?' · '+o.nt:'');
+  var d=o.d?dLabel(o.d):dLabel(todayStr());
+  return '<!doctype html><html><head><meta charset="utf-8"><style>@page{size:'+W+'mm '+H+'mm;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{width:'+W+'mm;height:'+H+'mm;padding:1.5mm 2mm;font-family:Arial,Helvetica,sans-serif;color:#000;overflow:hidden;display:flex;gap:1.5mm}'
+   +'.bc{flex:none;display:flex;gap:.6mm;align-items:stretch;line-height:0}.bc svg{flex:none;display:block}.cd{writing-mode:vertical-rl;transform:rotate(180deg);font-size:2.3mm;letter-spacing:.35mm;line-height:1;text-align:center}'
+   +'.i{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between}'
+   +'.n{font-weight:800;font-size:'+mm(5.6)+';line-height:1.02;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}'
+   +'.p{font-size:'+mm(3.1)+';line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}.q{font-size:'+mm(3.3)+';white-space:nowrap}'
+   +'.t{font-weight:800;font-size:'+mm(7.4)+';line-height:1;text-align:right;white-space:nowrap}.t small{font-size:'+mm(3.6)+';font-weight:700}.d{font-size:'+mm(2.5)+'}</style></head><body>'
+   +'<div class="bc">'+code128VSvg(code,mm(9),(H-3)+'mm')+'<div class="cd">'+esc(code)+'</div></div>'
+   +'<div class="i"><div><div class="n">'+esc(o.n)+'</div><div class="p">'+esc(pl)+'</div></div><div><div class="q">'+esc(q)+'</div><div class="t">'+fmt(o.t)+' <small>DH</small></div></div><div class="d">'+esc(d)+'</div></div></body></html>';
+}
+function copyCode(code){
+  function ok(){toast('Code '+code+' copié')}
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(ok,function(){toast('Code : '+code)});return}}catch(e){}
+  try{var t=document.createElement('textarea');t.value=code;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();ok()}catch(e){toast('Code : '+code)}
+}
+function codePrint(){
+  var v=$('codeIn').value.replace(/\s+/g,'').toUpperCase(),m=$('codeMsg');
+  function say(t,bad){m.hidden=!t;m.textContent=t||'';m.style.color=bad?'var(--bad)':'var(--ok)'}
+  if(v.length<4){say('Écris le code de la commande (6 caractères).',true);return}
+  if(!data.conn){say('Connecte la Google Sheet.',true);return}
+  $('codeGo').disabled=true;say('');
+  apiWith(data.conn,'orderByCode',{code:v}).then(function(j){
+    var o=j.order;printLabel({id:o.id,p:o.p,n:o.n,q:o.q,u:unitOf(o.p)||o.u,pr:o.pr,t:o.t,nt:o.nt,d:o.d});
+    say('Étiquette envoyée : '+o.n+' · '+o.p+' · '+fq(o.q)+(o.u?' '+o.u:'')+' = '+fmt(o.t)+' DH');$('codeIn').value='';$('codeIn').focus();
+  }).catch(function(e){say(e.code==='network'?'Pas de connexion. Réessaie.':(e.code==='action'?'Le script Google n’est pas à jour : demande au responsable de le mettre à jour.':(e.message||'Erreur')),true)}).then(function(){$('codeGo').disabled=false});
+}
+function printLabel(o){
+  try{
+    var f=document.createElement('iframe');f.setAttribute('aria-hidden','true');f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    f.onload=function(){try{f.contentWindow.focus();f.contentWindow.print()}catch(e){toast('Impression impossible.')}setTimeout(function(){if(f.parentNode)f.parentNode.removeChild(f)},60000)};
+    f.srcdoc=lblHtml(o);document.body.appendChild(f);
+  }catch(e){toast('Impression impossible.')}
+}
+function lblSettingsInit(){
+  lblLoad();
+  $('lblOn').checked=lbl.on;$('lblW').value=lbl.w;$('lblH').value=lbl.h;
+  function rd(){lbl.on=$('lblOn').checked;$('codeBox').hidden=!lbl.on;lbl.w=Math.min(120,Math.max(20,Number($('lblW').value)||50));lbl.h=Math.min(120,Math.max(15,Number($('lblH').value)||30));lblSave();renderList()}
+  $('codeBox').hidden=!lbl.on;
+  $('codeGo').addEventListener('click',codePrint);$('codeIn').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();codePrint()}});
+  $('lblOn').addEventListener('change',rd);$('lblW').addEventListener('change',rd);$('lblH').addEventListener('change',rd);
+  $('lblTest').addEventListener('click',function(){rd();printLabel({id:'otest'+Date.now().toString(36),p:'Sublimation',n:'Client test',q:12.5,u:'m',pr:1500,t:18750,nt:'Essai étiquette',d:todayStr()})});
+}
 function submitOrder(e){
   e.preventDefault();
   var er=$('formErr');function err(m,el){er.textContent=m;er.hidden=false;if(el)el.focus()}
@@ -534,6 +618,7 @@ function submitOrder(e){
   var known=clientsList().find(function(c){return nameKey(c[1])===nameKey(name)});
   var o={id:newId(),product:sel,client:known?known[0]:clientId(name),clientName:known?known[1]:name,qty:q,price:pc,total:tot,note:$('note').value.replace(/\s+/g,' ').trim().slice(0,120),ts:Date.now(),date:todayStr()};
   data.pending.push(o);save();
+  if(lbl.on)printLabel({id:o.id,p:o.product,n:o.clientName,q:o.qty,u:unitOf(o.product),pr:o.price,t:o.total,nt:o.note,d:o.date});
   $('qty').value='';$('price').value='';$('tot').value='';$('note').value='';$('price').dataset.touched='';$('cli').value='';hideCliRes();lk.reset([]);prefillPrice();refreshForm();render();
   showPop('Commande lancée ✓',o.clientName+' · '+fq(q)+' '+(unitOf(sel)||'')+' · '+fmt(tot)+' DH');
   syncNow();
@@ -611,7 +696,7 @@ function pinManifestToLink(){
 }
 
 function init(){
-  load();
+  load();lblSettingsInit();
   function saveName(){
     var n=$('nameInput').value.replace(/\s+/g,' ').trim();
     if(!n){$('nameErr').textContent='Écris ton prénom.';$('nameErr').hidden=false;return}
@@ -646,6 +731,8 @@ function init(){
     var t=e.target.closest('[data-dayt]');
     if(t){var sec=t.parentNode,op=!sec.classList.contains('open');sec.classList.toggle('open',op);var ul=sec.querySelector('.ops');if(ul)ul.hidden=!op;dayOpen[t.dataset.dayt]=op;return}
     var eb=e.target.closest('[data-oedit]');if(eb){openEdit(eb.dataset.oedit);return}
+    var cc=e.target.closest('[data-ocopy]');if(cc){copyCode(cc.dataset.ocopy);return}
+    var lb=e.target.closest('[data-olbl]');if(lb){var r=orderRows().filter(function(x){return x.id===lb.dataset.olbl})[0];if(r)printLabel(r);return}
     var cb=e.target.closest('[data-ocancel]');if(cb){cancelOrder(cb.dataset.ocancel)}
   });
   $('connGo').addEventListener('click',function(){
