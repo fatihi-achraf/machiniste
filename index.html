@@ -261,9 +261,8 @@ body{padding-block:14px 100px}
       <div style="margin-block-start:12px;display:flex;flex-direction:column;gap:10px">
         <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" id="lblOn" style="width:22px;height:22px"> Imprimer l’étiquette quand je lance une commande</label>
         <div style="display:flex;gap:10px"><label style="flex:1;font-size:.85rem">Largeur (mm)<input id="lblW" type="number" inputmode="numeric" min="20" max="120" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label><label style="flex:1;font-size:.85rem">Hauteur (mm)<input id="lblH" type="number" inputmode="numeric" min="15" max="120" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"></label></div>
-        <label style="font-size:.85rem">Mode d’impression (si l’étiquette sort mal, essaie A, B, C, D)<select id="lblR" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"><option value="A">A — papier portrait, image tournée à droite</option><option value="B">B — papier portrait, image tournée à gauche</option><option value="C">C — papier paysage, image droite</option><option value="D">D — papier paysage, image retournée</option></select></label>
         <label style="font-size:.85rem">Résolution de l’imprimante<select id="lblD" style="width:100%;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)"><option value="8">203 dpi (courant)</option><option value="12">300 dpi</option></select></label>
-        <button class="ghost" id="lblTest" type="button">Aperçu et étiquette test</button>
+        <button class="ghost" id="lblTest" type="button">Imprimer une étiquette test</button>
         <p class="hint">Réglage propre à cet appareil : à activer seulement sur l’ordinateur branché à l’imprimante. L’étiquette part sur l’imprimante par défaut. Sans imprimante, la commande est quand même enregistrée.</p>
       </div>
     </details>
@@ -319,8 +318,37 @@ function dayName(s){var p=s.split('-').map(Number);return DAYS[new Date(p[0],p[1
 var nf=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}),nq=new Intl.NumberFormat('fr-FR',{maximumFractionDigits:3});
 function fmt(c){return nf.format(Math.abs(c)/100)}
 function fq(q){return nq.format(q)}
-function parseMoney(str){var s=String(str==null?'':str).replace(/[\s\u00a0\u202f]/g,'').replace(',','.');if(s===''||s==='.'||!/^\d*\.?\d*$/.test(s))return null;var n=Number(s);return isFinite(n)?Math.round(n*100):null}
-function parseQty(str){var s=String(str==null?'':str).replace(/[\s\u00a0\u202f]/g,'').replace(',','.');if(s===''||s==='.'||!/^\d*\.?\d*$/.test(s))return null;var n=Math.round(Number(s)*1000)/1000;return isFinite(n)?n:null}
+function parseMoney1(str){var s=String(str==null?'':str).replace(/[\s\u00a0\u202f]/g,'').replace(',','.');if(s===''||s==='.'||!/^\d*\.?\d*$/.test(s))return null;var n=Number(s);return isFinite(n)?Math.round(n*100):null}
+function parseQty1(str){var s=String(str==null?'':str).replace(/[\s\u00a0\u202f]/g,'').replace(',','.');if(s===''||s==='.'||!/^\d*\.?\d*$/.test(s))return null;var n=Math.round(Number(s)*1000)/1000;return isFinite(n)?n:null}
+/* ---- calcul dans la case : 12+8,5+3 donne la somme ---- */
+function sumExpr(str,one){var parts=String(str==null?'':str).split('+'),tot=0,n=0,i,v;for(i=0;i<parts.length;i++){if(parts[i].replace(/[\s  ]/g,'')==='')continue;v=one(parts[i]);if(v===null)return null;tot+=v;n++}return n?tot:null}
+function parseMoney(str){var s=sumExpr(str,parseMoney1);return s===null?null:Math.round(s)}
+function parseQty(str){var s=sumExpr(str,parseQty1);return s===null?null:Math.round(s*1000)/1000}
+function calcInit(list){
+  var ups=[];document.addEventListener('input',function(){ups.forEach(function(f){f()})});
+  var nf2=new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}),nq2=new Intl.NumberFormat('fr-FR',{maximumFractionDigits:3});
+  list.forEach(function(it){
+    var inp=document.getElementById(it.id);if(!inp||inp.dataset.calc)return;inp.dataset.calc='1';
+    var w=document.createElement('span');w.style.cssText='position:relative;display:block';
+    inp.parentNode.insertBefore(w,inp);w.appendChild(inp);inp.style.paddingLeft='54px';
+    var b=document.createElement('button');b.type='button';b.textContent='+';b.setAttribute('aria-label','Ajouter une autre valeur');
+    b.style.cssText='position:absolute;left:6px;top:50%;transform:translateY(-50%);width:42px;height:40px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface-2,var(--surface));color:var(--ink);font-size:1.5rem;font-weight:700;line-height:1;padding:0;cursor:pointer;z-index:2';
+    w.appendChild(b);
+    var h=document.createElement('small');h.className='hint';h.hidden=true;h.style.cssText='font-weight:600;color:var(--ink)';
+    var host=w.parentNode;if(host&&host.classList&&host.classList.contains('money')){host.parentNode.insertBefore(h,host.nextSibling)}else{w.parentNode.insertBefore(h,w.nextSibling)}
+    function upd(){
+      var v=inp.value;if(v.indexOf('+')<0){h.hidden=true;return}
+      var s=it.kind==='qty'?parseQty(v):parseMoney(v);
+      if(s===null){h.hidden=true;return}
+      h.textContent='= '+(it.kind==='qty'?nq2.format(s)+(it.unit&&it.unit()?' '+it.unit():''):nf2.format(s/100)+' DH');h.hidden=false;
+    }
+    inp.addEventListener('input',upd);
+    b.addEventListener('mousedown',function(e){e.preventDefault()});
+    b.addEventListener('click',function(){var v=inp.value;if(v.trim()!==''&&!/\+\s*$/.test(v)&&sumExpr(v,it.kind==='qty'?parseQty1:parseMoney1)!==null){inp.value=v.replace(/\s+$/,'')+'+';inp.dispatchEvent(new Event('input',{bubbles:true}))}inp.focus()});
+    inp.addEventListener('change',upd);
+    ups.push(upd);
+  });
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]})}
 function cleanName(s){return String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,60)}
 function nameKey(s){return cleanName(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim()}
@@ -596,10 +624,9 @@ function lblCanvas(o){
   c.putImageData(im,0,0);
   return cv;
 }
-/* Modes d'impression par le navigateur (le pilote de l'imprimante ne tourne pas toujours le papier pareil) :
-   A = papier portrait 40×60, image tournée à droite (par défaut) ; B = portrait, tournée à gauche ;
-   C = papier paysage 60×40, image telle quelle ; D = paysage, image retournée de 180° */
-function lblPortraitPage(){return lbl.mode==='A'||lbl.mode==='B'}
+/* Modes d'impression : le pilote impose son propre papier et sa propre orientation, on ne déclare donc AUCUN format de page.
+   L'image remplit la page telle que le pilote la donne ; seul le sens de rotation change :
+   A = tournée de 90° à droite (défaut) ; B = 90° à gauche ; C = sans rotation ; D = retournée de 180° */
 function lblPrintCanvas(o){
   var cv=lblCanvas(o),m=lbl.mode;
   if(m==='C')return cv;
@@ -610,16 +637,8 @@ function lblPrintCanvas(o){
   c.drawImage(cv,0,0);return r;
 }
 function lblHtml(o){
-  var url=lblPrintCanvas(o).toDataURL('image/png'),lw=Math.max(lbl.w,lbl.h),lh=Math.min(lbl.w,lbl.h),pw=lblPortraitPage()?lh:lw,ph=lblPortraitPage()?lw:lh;
-  return '<!doctype html><html><head><meta charset="utf-8"><style>@page{size:'+pw+'mm '+ph+'mm;margin:0}html,body{margin:0;padding:0;background:#fff}body{width:'+pw+'mm;height:'+ph+'mm;overflow:hidden}img{display:block;width:'+pw+'mm;height:'+ph+'mm;image-rendering:pixelated}</style></head><body><img alt="Étiquette" src="'+url+'"></body></html>';
-}
-function lblPreview(o){
-  var old=document.getElementById('lblPrev');if(old)old.remove();
-  var url=lblCanvas(o).toDataURL('image/png'),d=document.createElement('div');d.id='lblPrev';
-  d.style.cssText='position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px';
-  d.innerHTML='<div style="background:var(--surface);color:var(--ink);border-radius:16px;padding:16px;max-width:460px;width:100%;display:flex;flex-direction:column;gap:12px"><b>Aperçu de l’étiquette ('+Math.max(lbl.w,lbl.h)+' × '+Math.min(lbl.w,lbl.h)+' mm, mode '+lbl.mode+')</b><img alt="Étiquette" src="'+url+'" style="max-height:52vh;object-fit:contain;align-self:center;border:1px solid var(--line);border-radius:6px;background:#fff"><button class="primary" id="lpPrint" type="button">Imprimer</button><a class="ghost" id="lpSave" download="etiquette-'+orderCode(o.id)+'.png" href="'+url+'">Enregistrer l’image (PNG)</a><button class="ghost" id="lpX" type="button">Fermer</button></div>';
-  document.body.appendChild(d);
-  d.addEventListener('click',function(e){if(e.target===d||e.target.id==='lpX')d.remove();else if(e.target.id==='lpPrint')printLabel(o)});
+  var url=lblPrintCanvas(o).toDataURL('image/png');
+  return '<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;padding:0;background:#fff;width:100%;height:100%;overflow:hidden}img{position:fixed;left:0;top:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated}</style></head><body><img alt="Étiquette" src="'+url+'"></body></html>';
 }
 function copyCode(code){
   function ok(){toast('Code '+code+' copié')}
@@ -646,12 +665,12 @@ function printLabel(o){
 }
 function lblSettingsInit(){
   lblLoad();
-  $('lblOn').checked=lbl.on;$('lblW').value=lbl.w;$('lblH').value=lbl.h;$('lblD').value=String(lbl.dpmm);$('lblR').value=lbl.mode;
-  function rd(){lbl.on=$('lblOn').checked;$('codeBox').hidden=!lbl.on;lbl.w=Math.min(120,Math.max(20,Number($('lblW').value)||60));lbl.h=Math.min(120,Math.max(15,Number($('lblH').value)||40));lbl.dpmm=$('lblD').value==='12'?12:8;lbl.mode=$('lblR').value;lblSave();renderList()}
+  $('lblOn').checked=lbl.on;$('lblW').value=lbl.w;$('lblH').value=lbl.h;$('lblD').value=String(lbl.dpmm);
+  function rd(){lbl.on=$('lblOn').checked;$('codeBox').hidden=!lbl.on;lbl.w=Math.min(120,Math.max(20,Number($('lblW').value)||60));lbl.h=Math.min(120,Math.max(15,Number($('lblH').value)||40));lbl.dpmm=$('lblD').value==='12'?12:8;lblSave();renderList()}
   $('codeBox').hidden=!lbl.on;
   $('codeGo').addEventListener('click',codePrint);$('codeIn').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();codePrint()}});
-  $('lblOn').addEventListener('change',rd);$('lblW').addEventListener('change',rd);$('lblH').addEventListener('change',rd);$('lblD').addEventListener('change',rd);$('lblR').addEventListener('change',rd);
-  $('lblTest').addEventListener('click',function(){rd();lblPreview({id:'otest'+Date.now().toString(36),p:'Sublimation',n:'Test mode '+lbl.mode,q:12.5,u:'m',pr:1500,t:18750,nt:'Essai étiquette',d:todayStr()})});
+  $('lblOn').addEventListener('change',rd);$('lblW').addEventListener('change',rd);$('lblH').addEventListener('change',rd);$('lblD').addEventListener('change',rd);
+  $('lblTest').addEventListener('click',function(){rd();printLabel({id:'otest'+Date.now().toString(36),p:'Sublimation',n:'Client test',q:12.5,u:'m',pr:1500,t:18750,nt:'Essai étiquette',d:todayStr()})});
 }
 function submitOrder(e){
   e.preventDefault();
@@ -745,6 +764,7 @@ function pinManifestToLink(){
 }
 
 function init(){
+  calcInit([{id:'qty',kind:'qty',unit:function(){return $('qUnit').textContent}},{id:'tot',kind:'money'},{id:'edQty',kind:'qty',unit:function(){return $('edQUnit').textContent}},{id:'edTotIn',kind:'money'}]);
   load();lblSettingsInit();
   function saveName(){
     var n=$('nameInput').value.replace(/\s+/g,' ').trim();
